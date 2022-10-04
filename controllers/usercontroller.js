@@ -1,5 +1,9 @@
 const bcrypt =  require('bcryptjs');
 const db = require('../config/dbconfig');
+const jwt = require('jsonwebtoken');
+require("dotenv").config();
+
+
 
 const securepassword = async(password)=>{
     try
@@ -11,7 +15,7 @@ const securepassword = async(password)=>{
      catch (error)
       {
 
-       console.log(error.message);
+       res.staus(400).send(error.message);
 
       }
 
@@ -56,6 +60,8 @@ const registeruser = async(req,res)=>
 }; 
 
 
+
+
 const loginuser = async(request,response)=>
 {
     try{
@@ -65,23 +71,32 @@ const loginuser = async(request,response)=>
             response.send("Please enter email and password!");
           
         }
-        db.query(
-            "SELECT email FROM users WHERE email = ?",
+        await  db.query(
+            "SELECT * FROM users WHERE email = ?",
             [email],
-            (err,result)=>{
+            async (err,result)=>{
                 if (err)throw err;
-                if(result.length ){
-                    const passwordmatch =  bcrypt.compare(password, result[0].password);
-                    if(passwordmatch)
+                if(result.length > 0){
+                  console.log("user password is :"+result[0].password)
+                    // const  hashedPassword = await bcrypt.hashSync(password,10);
+                    // console.log(hashedPassword);
+                    const passwordmatch = await bcrypt.compare(request.body.password,result[0].password);
+            
+                    if(passwordmatch===true)
                     {
                         const token = jwt.sign({email},process.env.JWT_TOKEN,{ expiresIn: process.env.JWT_EXPIRES });
                         response.status(200).send({"msg":"logged in sucessfully","token":token}); 
                         // return res.cookie({"token":token}).json({success:true,message:'LoggedIn Successfully'})
                     }
+                    else{
+                      response.status(403).send(` Incorrect password `);
+                      response.end()
+                    }
               
         }
         else{
-            response.status(403).send(`${err}: Incorrect email`);
+            response.status(403).send(` Incorrect email`);
+            response.end()
         }
             
          }
@@ -96,7 +111,38 @@ const loginuser = async(request,response)=>
 
 };
 
-
+// const loginuser = async (request, response) => {
+//     try {
+//       const { email, password } = request.body;
+  
+//       if (!email && !password) {
+//         response.send("Please enter email and password!");
+//       }
+//       db.query(
+//         "SELECT email,password FROM users WHERE email = ?",
+//         [email],
+//         async (err, result) => {
+//           if (err) throw err;
+//           const passwordmatch = await bcrypt.compare(
+//             password,
+//             result[0].password
+//           );
+//           console.log(passwordmatch);
+//           if (passwordmatch == true) {
+//             const token = jwt.sign({ email }, process.env.JWT_TOKEN, {
+//               expiresIn: process.env.JWT_EXPIRES,
+//             });
+//             response
+//               .status(200)
+//               .send({ msg: "logged in sucessfully", token: token });
+//             // return res.cookie({"token":token}).json({success:true,message:'LoggedIn Successfully'})
+//           } else {
+//             response.status(403).send( "incorrect credentials ")
+      
+//     } catch (error) {
+//       response.status(400).send(error.message);
+//     }
+//   };
 module.exports = {
     registeruser,
     loginuser
